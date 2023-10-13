@@ -42,7 +42,11 @@ def plot_images(query_df):
         for i in range(1, columns*rows +1):
             
             img = Image.open(query_df.loc[i-1,'img_path'])
-            fig.add_subplot(rows, columns, i)
+
+            ax = fig.add_subplot(rows, columns, i, )
+            ax.title.set_text(query_df.loc[i-1,'record_id'])
+            ax.set_xticks([])
+            ax.set_yticks([])
             plt.imshow(img)
         plt.show()
 
@@ -66,6 +70,7 @@ class MultiModalCollection(object):
 
     def load_from_csv(self, path_to_csv: str):
         self.df = pd.read_csv(path_to_csv, index_col=0)
+        self.df.downloaded = self.df.img_path.apply(lambda x: False if pd.isnull(x) else  Path(x).is_file())
     
     def filter_records(self):
         """removes all records without images
@@ -250,7 +255,7 @@ class SMGCollection(MultiModalCollection):
         
         return [record_id,names,description, taxonomy, img_loc ,img_name, img_path, downloaded]
     
-    def fetch_images(self, max_images: int=100) -> None:
+    def fetch_images(self, n: int=100) -> None:
         """Given a json dump with all records fetch
         and save images in a img_folder
 
@@ -278,9 +283,11 @@ class SMGCollection(MultiModalCollection):
 
         print('before downloading',len(self.images)) 
         # get all the rows for images that are not downloaded yet and take a subset of `max_images` 
-        img_locs_all = list(self.df[(self.df.downloaded==False) & (self.df.img_loc!= '')].img_loc)
+        self.df.downloaded = self.df.img_path.apply(lambda x: False if pd.isnull(x) else  Path(x).is_file())
+        img_locs_all = list(self.df[(self.df.downloaded==False) & (~self.df.img_loc.isin(['','nan',np.nan]))].img_loc)
+        
         print('remaining images to download', len(img_locs_all))
-        img_locs = img_locs_all[:max_images]
+        img_locs = img_locs_all[:n]
         
         # download the images
         # hard coded base url for getting images from the SMG group
@@ -297,28 +304,35 @@ class SMGCollection(MultiModalCollection):
 
 class BTCollection(MultiModalCollection):
     
-    def __init__(self,df=None, img_folder='imgs',device='cpu'):
+    def __init__(self,df=None, img_folder='bt_imgs',device='cpu'):
         MultiModalCollection.__init__(self,df,img_folder,device)
+        self.collection_name = 'bt'
 
     def fetch_images(self, n=-1):
         def fetch_image(loc: str):   
+           
             url = base_url + '/'+ loc
             img_name = loc.split('/')[-1]
             request  = requests.get(url)
             if request.status_code == 200:
-                
+               
                 with open(self.img_folder / img_name, 'wb') as f:
                     f.write(request.content)
                     time.sleep(random.uniform(.5, 1.5))
                     return True
             return False
         
-        img_names = list(self.df[~self.df.Thumbnail.isnull()].Thumbnail)
-        img_names =  [img for img in img_names if not (self.img_folder / img).is_file()][:n]
- 
+        img_names = list(self.df[~self.df.img_loc.isnull()].img_loc)
+        img_names =  [img for img in img_names if (not (self.img_folder / img).is_file()) and (len(img) > 0)][:n]
+       
+        print('before downloading',len(self.images)) 
+
         base_url = 'http://www.digitalarchives.bt.com/CalmView/GetImage.ashx?db=Catalog&type=default&fname='
         for img in tqdm(img_names):
             fetch_image(img)
+
+        self.images = set(self.img_folder.glob('*.*')) 
+        print('after downloading',len(self.images))
 
 
     def load_from_xml(self,path):
@@ -398,7 +412,7 @@ class NMSCollection(MultiModalCollection):
     def load_from_csv(self,path_to_csv):
         self.df = pd.read_csv(path_to_csv, index_col=0)
 
-    def fetch_images(self):
+    def fetch_images(self,**kwargs):
         imgs_ids = list(self.df[~self.df['img_loc'].isnull()]['img_loc'])
         imgs_ids = [i for e in imgs_ids for i in e.split('|') if i.startswith('PF')]
         base_url = 'https://www.nms.ac.uk/search.axd?command=getcontent&server=Detail&value='
