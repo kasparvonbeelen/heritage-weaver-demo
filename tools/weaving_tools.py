@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 import requests
 import random
 import time
+from json import JSONDecodeError
 
 
 
@@ -43,14 +44,32 @@ def plot_images(query_df):
             
             img = Image.open(query_df.loc[i-1,'img_path'])
 
-            ax = fig.add_subplot(rows, columns, i, )
-            ax.title.set_text(query_df.loc[i-1,'record_id'])
+            ax = fig.add_subplot(rows, columns, i,)
+            title = f"{query_df.loc[i-1,'record_id']}" # 
+            ax.title.set_text(title)
             ax.set_xticks([])
             ax.set_yticks([])
             plt.imshow(img)
         plt.show()
 
-
+def classify_zero_shot(img_path, labels, model, processor):
+    image = Image.open(img_path)
+    inputs = processor(images=image, text=labels, return_tensors="pt", padding=True)
+    
+    with torch.no_grad():
+        outputs = model(**inputs)
+    
+    logits = outputs.logits_per_image[0]
+    probs = logits.softmax(dim=-1).numpy()
+    scores = probs.tolist()
+    
+    return [
+        {"score": score, "label": candidate_label}
+            for score, candidate_label in sorted(
+                                            zip(scores, labels),  # probs
+                                                 key=lambda x: -x[0]
+                                                    )
+                ]
 
 # ----------------------------------
 # --- Generic Collection Class -----
@@ -427,4 +446,111 @@ class NMSCollection(MultiModalCollection):
                 with open(self.img_folder / ( img+'.jpg'), 'wb') as f:
                     f.write(request.content)
                     time.sleep(random.uniform(.25, .25)) # randomize the requests
-                    
+
+
+# ----------------------------------
+# ------ VA Collection Class -------
+# ----------------------------------
+
+class VACollection(MultiModalCollection):
+    def __init__(self,df=None, img_folder='va_imgs',device='cpu'):
+        MultiModalCollection.__init__(self,df,img_folder,device)
+        self.collection_name = 'nms'
+        
+    def parse_record(self,record):
+        record_id = record['systemNumber']
+        description = ' '.join([v.strip() for k,v in record.items() if 'description' in k.lower()])
+        images = record['images'] 
+        if images:
+            img_loc = images[0]
+            img_name = f'{img_loc}.jpg'
+            img_path = str(Path(f'{self.img_folder}/{img_loc}.jpg')) # for now we just take the first image
+        else:
+            img_loc, img_name, img_path = '','',''
+        donwloaded = False
+        name = record['objectType']
+        taxonomy = ', '.join([e['text'] for e in record['categories']])
+        return [record_id,name,description,taxonomy,img_loc,img_name,img_path,donwloaded]
+    
+    def to_csv(self):
+        data = json.load(open('data/VA.json'))
+        rows = [self.parse_record(r['record']) for r in data]
+        self.df = pd.DataFrame(rows, 
+                               columns=['record_id','name','description','taxonomy','img_loc','img_name','img_path','downloaded'])
+
+        self.df.to_csv('data/VA.csv')
+
+    def fetch_images(self):
+        base_url = 'https://framemark.vam.ac.uk/collections/'
+        postfix = '/full/600,/0/default.jpg'
+        for i, row in tqdm(self.df.iterrows()):
+            if (self.img_folder).is_file(): 
+                continue
+
+            if row.img_loc:
+                url = base_url+row.img_loc+postfix
+                request  = requests.get(url)
+                if request.status_code == 200: # check if request is successful  
+               
+                    with open(self.img_folder / row.img_name, 'wb') as f:
+                        f.write(request.content)
+                        time.sleep(random.uniform(.25, .25)) # randomize the requests
+
+
+    def fetch_records_api(self,query,page_size = 50):
+        Path(f'data/va_json').mkdir(exist_ok=True)
+        self.data_path = Path(f'data/va_json/VA_{query}.json')
+        
+        if self.data_path.is_file():
+            with open(self.data_path) as in_json:
+                self.json = json.load(in_json)
+        else:
+            self.json = []
+        self.page = len(self.json)
+        
+        print(self.page)
+
+        p = 1
+        call = f'https://api.vam.ac.uk/v2/objects/search?q={query}&page={p}&page_size={page_size}'
+        start_req = requests.get(call).json()
+        record_count = start_req['info']['record_count'] 
+        print(f'total records {record_count}')
+        downloaded = (self.page)*page_size
+        print(f'records downloaded {downloaded}')
+        print(f'remaining total records to download {record_count - downloaded}')
+        print(f'iterations left {((record_count - downloaded) // page_size)}')
+       
+        for page in range(record_count// page_size)[self.page:10000//page_size]:
+                print(page)
+                try:
+                    req = requests.get(f'https://api.vam.ac.uk/v2/objects/search?q="{query}"&page={page}&page_size={page_size}')
+                    self.json.append(req.json())
+                except (JSONDecodeError) as e:
+                    with open(self.data_path,'w') as out_json:
+                        json.dump(self.json,out_json)
+            
+        with open(self.data_path,'w') as out_json:
+            json.dump(self.json,out_json)
+
+        
+    def fetch_records(self):
+        va_files = list(Path('data/va_json').glob('*.json'))
+        print(len(va_files))
+        records_ids = []
+        for vf in va_files:
+            with open(vf) as in_json:
+                data = json.load(in_json)
+                if len(data) > 0:
+                    records_ids.extend([e['systemNumber'] for e in data[0]['records']])
+
+        records_ids = list(set(records_ids))
+        self.records = []
+        print(len(records_ids))
+        for rid in tqdm(records_ids):
+            #print(rid)
+            self.records.append(requests.get(f'https://api.vam.ac.uk/v2/museumobject/{rid}').json())
+        with open('data/VA.json','w') as out_json:
+            json.dump(self.records,out_json)
+
+
+        
