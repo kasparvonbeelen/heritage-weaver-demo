@@ -149,11 +149,12 @@ class MultiModalCollection(object):
 
         self.dataset = self.dataset.map(self.extract_clip_embedding, fn_kwargs= {'modality': modality})
 
-    def vectorize_collection(self, clip_ckpt: str='clip-ViT-B-32'):
+    def vectorize_collection(self, clip_ckpt: str='clip-ViT-B-32',
+                              modalities= [('img_path','image'),('description','text')]):
         """vectorize the collection"""
         self.filter_records()
 
-        for target_col, modality in [('img_path','image'),('description','text')]:
+        for target_col, modality in modalities:
             print(f'Vectorizing {modality}')
             self.embed_clip(target_col,modality,clip_ckpt)
 
@@ -165,6 +166,8 @@ class MultiModalCollection(object):
                 metadatas=[{"collection": self.collection_name,
                             'modality': modality, 
                             'img_path': row.img_path, 
+                            'img_url': row.img_url,
+                            #'name': row.names,
                             'record_id': row.record_id
                                 } for i, row in self.df.iterrows()],
             ids = [f'{row.record_id}_{modality}_{i}' for i, row in self.df.iterrows()] 
@@ -455,7 +458,7 @@ class NMSCollection(MultiModalCollection):
 class VACollection(MultiModalCollection):
     def __init__(self,df=None, img_folder='va_imgs',device='cpu'):
         MultiModalCollection.__init__(self,df,img_folder,device)
-        self.collection_name = 'nms'
+        self.collection_name = 'va'
         
     def parse_record(self,record):
         record_id = record['systemNumber']
@@ -477,7 +480,7 @@ class VACollection(MultiModalCollection):
         rows = [self.parse_record(r['record']) for r in data]
         self.df = pd.DataFrame(rows, 
                                columns=['record_id','name','description','taxonomy','img_loc','img_name','img_path','downloaded'])
-
+        self.df['downloaded'] = self.df.img_path.apply(lambda x: Path(x).is_file() if x else False)
         self.df.to_csv('data/VA.csv')
 
     def fetch_images(self):
