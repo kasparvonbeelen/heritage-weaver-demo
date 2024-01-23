@@ -52,6 +52,20 @@ def plot_images(query_df):
             plt.imshow(img)
         plt.show()
 
+def unique_substrings(substring, string_list):
+    """
+    Check if a substring appears in a list of strings.
+
+    :param substring: The substring to search for.
+    :param string_list: A list of strings to search in.
+    :return: False if the substring is found in any of the strings, False otherwise.
+    """
+    for string in string_list:
+        if substring in string and substring != string:
+            return False
+    return True
+
+
 def classify_zero_shot(img_path, labels, model, processor):
     image = Image.open(img_path)
     inputs = processor(images=image, text=labels, return_tensors="pt", padding=True)

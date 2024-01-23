@@ -353,7 +353,8 @@ class Collection(object):
 
     def load_clip_model(self,clip_model_ckpt: str='clip-ViT-B-32'):
         """load clip model and convert with sentence transformer"""
-        self.clip_model = SentenceTransformer(clip_model_ckpt)
+        self.clip_model_ckpt = clip_model_ckpt
+        self.clip_model = SentenceTransformer(self.clip_model_ckpt)
         self.clip_model.to(self.device)
 
     def embed_clip(self,target_col,model_ckpt: str="openai/clip-vit-base-patch32"):
@@ -410,12 +411,15 @@ class Collection(object):
         samples_df.sort_values("scores", ascending=True, inplace=True)
         samples_df.reset_index(drop=True, inplace=True)
         return samples_df
+
     
     def load_faiss_index(self,path_to_faiss: str, 
                         embedding_col: str,
                         field: str):
         """load existing faiss index"""
-        self.to_dataset()
+        if not hasattr(self,'dataset'):
+            self.to_dataset()
+
         self.dataset.load_faiss_index(embedding_col,path_to_faiss)
         self.indices[field] = self.dataset
     
@@ -445,7 +449,7 @@ class SMGCollection(Collection):
     that should apply to all collections.
     """
 
-    def __init__(self, df: pd.DataFrame = pd.DataFrame(), img_folder: str='imgs', device: str='cpu'):
+    def __init__(self, df: pd.DataFrame = pd.DataFrame(), img_folder: str='smg_imgs', device: str='cpu'):
         self.df = df
         self.img_folder = Path(img_folder)
         self.img_folder.mkdir(exist_ok=True)
@@ -660,17 +664,29 @@ class NMSCollection(Collection):
         col_names = set.intersection(*col_names)
         
         self.df = pd.concat([df[col_names] for df in dfs], axis=0)
-        self.df.drop_duplicates(subset=['priref'], inplace=True)
+        self.df.drop_duplicates(subset=['priref'], inplace=True) # Check what is the best identifier
         self.df.reset_index(inplace=True)
 
+        col_mapping ={'object_number':'record_id', # Check what is the best identifier
+         'object_name':'name',
+         'object_category':'taxonomy',
+         'reproduction.reference':'img_loc'}
+        
+        self.df.rename(col_mapping, axis=1, inplace=True)
+        self.df['img_loc'] = self.df['img_loc'].apply(lambda x: x.split('|') if not pd.isnull(x) else [])
+        self.df = self.df.explode('img_loc')
+        self.df['img_name'] = self.df.img_loc.apply(lambda x: x + '.jpg' if not pd.isnull(x) else x)
+        self.df['img_path'] = self.df.img_name.apply(lambda x: self.img_folder/ x if not pd.isnull(x) else x)
+        self.df['downloaded'] = self.df.img_path.apply(lambda x: x.is_file() if not pd.isnull(x) else False)
+        self.df['img_path'] = self.df['img_path'].apply(lambda x: str(x))
+        self.df = self.df[['record_id','name','description','taxonomy','img_loc','img_name','img_path','downloaded']]
 
-        #{'record_id','name','description','taxonomy','img_loc','img_name','img_path','downloaded'}
     
     def load_from_csv(self,path_to_csv):
         self.df = pd.read_csv(path_to_csv, index_col=0)
 
     def fetch_images(self):
-        imgs_ids = list(self.df[~self.df['reproduction.reference'].isnull()]['reproduction.reference'])
+        imgs_ids = list(self.df[~self.df['img_loc'].isnull()]['img_loc'])
         imgs_ids = [i for e in imgs_ids for i in e.split('|') if i.startswith('PF')]
         base_url = 'https://www.nms.ac.uk/search.axd?command=getcontent&server=Detail&value='
         for img in tqdm(imgs_ids):
