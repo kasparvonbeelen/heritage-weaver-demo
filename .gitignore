@@ -162,4 +162,10 @@ cython_debug/
 data/
 smg_imgs/
 nms_imgs/
+bt_imgs/
+va_imgs/
+thumbnails/
 data/
+ce_vector_db/
+*.html
+mns_imgs/
