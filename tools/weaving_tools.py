@@ -52,6 +52,48 @@ def plot_images(query_df):
             plt.imshow(img)
         plt.show()
 
+def plot_query_results(results, collection_df):
+    result_df = pd.DataFrame(results['metadatas'][0])
+    result_df['similarity'] = 1 - np.array(results['distances'][0])
+    #top_results = result_df.groupby('record_id')['similarity'].sum().sort_values(ascending=False).index.tolist()
+    top_results = result_df.groupby('record_id')['similarity'].max().sort_values(ascending=False)#.index.tolist()
+    #query_df = collection_df[collection_df['record_id'].isin(top_results)][['record_id','img_path','description']].reset_index()
+    query_df = pd.DataFrame(
+                top_results
+            ).merge(
+                collection_df[['record_id','img_path','description']],
+                left_index=True,
+                right_on='record_id'
+                    ).reset_index(drop=True)
+    fig = plt.figure(figsize=(10, 10))
+    columns = 2
+    rows = 5
+    for i in range(1, columns*rows +1):
+            
+            img = Image.open(query_df.loc[i-1,'img_path'])
+
+            ax = fig.add_subplot(rows, columns, i,)
+            title = f"{query_df.loc[i-1,'record_id']}" # 
+            ax.title.set_text(title)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            plt.imshow(img)
+    plt.show()
+    return query_df
+
+def get_query_results(results, collection_df):
+    result_df = pd.DataFrame(results['metadatas'][0])
+    result_df['similarity'] = 1 - np.array(results['distances'][0])
+    top_results = result_df.groupby('record_id')['similarity'].max().sort_values(ascending=False)#.index.tolist()
+    return pd.DataFrame(
+                top_results
+            ).merge(
+                collection_df[['record_id','img_path','description']],
+                left_index=True,
+                right_on='record_id'
+                    ).reset_index(drop=True)
+    
+
 def unique_substrings(substring, string_list):
     """
     Check if a substring appears in a list of strings.
@@ -291,7 +333,7 @@ class SMGCollection(MultiModalCollection):
         
         return [record_id,names,description, taxonomy, img_loc ,img_name, img_path, downloaded]
     
-    def fetch_images(self, n: int=100) -> None:
+    def fetch_images(self, n: int=0, record_ids=[]) -> None:
         """Given a json dump with all records fetch
         and save images in a img_folder
 
@@ -318,19 +360,30 @@ class SMGCollection(MultiModalCollection):
             return False
 
         print('before downloading',len(self.images)) 
-        # get all the rows for images that are not downloaded yet and take a subset of `max_images` 
-        self.df.downloaded = self.df.img_path.apply(lambda x: False if pd.isnull(x) else  Path(x).is_file())
-        img_locs_all = list(self.df[(self.df.downloaded==False) & (~self.df.img_loc.isin(['','nan',np.nan]))].img_loc)
-        
-        print('remaining images to download', len(img_locs_all))
-        img_locs = img_locs_all[:n]
-        
-        # download the images
-        # hard coded base url for getting images from the SMG group
         base_url = 'https://coimages.sciencemuseumgroup.org.uk/images'
-        _ = [fetch_image(r) for r in tqdm(img_locs)]
-        # get the number of downloaded images
-        self.images = set(self.img_folder.glob('*.*')) 
+        self.df.downloaded = self.df.img_path.apply(lambda x: False if pd.isnull(x) else  Path(x).is_file())
+
+        if n > 0:
+            # get all the rows for images that are not downloaded yet and take a subset of `max_images` 
+            
+            img_locs_all = list(self.df[(self.df.downloaded==False) & (~self.df.img_loc.isin(['','nan',np.nan]))].img_loc)
+        
+            print('remaining images to download', len(img_locs_all))
+            img_locs = img_locs_all[:n]
+        
+            # download the images
+            # hard coded base url for getting images from the SMG group
+            
+            _ = [fetch_image(r) for r in tqdm(img_locs)]
+            # get the number of downloaded images
+        #elif urls != None:
+        #     _ = [fetch_image(r) for r in tqdm(urls)]
+        #self.images = set(self.img_folder.glob('*.*')) 
+        elif record_ids != None:
+            img_locs = list(self.df[(self.df.downloaded==False) & \
+                                        (~self.df.img_loc.isin(['','nan',np.nan])) &
+                                        (self.df.record_id.isin(record_ids))].img_loc)
+            _ = [fetch_image(r) for r in tqdm(img_locs)]
         print('after downloading',len(self.images))
   
 
@@ -424,13 +477,13 @@ class NMSCollection(MultiModalCollection):
         col_names = []
         for df in dfs:
             col_names.append(set(df.columns))
-        col_names = set.intersection(*col_names)
+        col_names = list(set.intersection(*col_names))
         
         self.df = pd.concat([df[col_names] for df in dfs], axis=0)
-        self.df.drop_duplicates(subset=['priref'], inplace=True) # Check what is the best identifier
+        #self.df.drop_duplicates(subset=['priref'], inplace=True) # Check what is the best identifier
         self.df.reset_index(inplace=True)
 
-        col_mapping ={'priref':'record_id', # Check what is the best identifier
+        col_mapping ={'object_number':'record_id', # Check what is the best identifier
          'object_name':'name',
          'object_category':'taxonomy',
          'reproduction.reference':'img_loc'}
@@ -448,21 +501,26 @@ class NMSCollection(MultiModalCollection):
     def load_from_csv(self,path_to_csv):
         self.df = pd.read_csv(path_to_csv, index_col=0)
 
-    def fetch_images(self,**kwargs):
-        imgs_ids = list(self.df[~self.df['img_loc'].isnull()]['img_loc'])
-        imgs_ids = [i for e in imgs_ids for i in e.split('|') if i.startswith('PF')]
+    def fetch_images(self,from_dataframe=True,imgs_ids=None,**kwargs):
         base_url = 'https://www.nms.ac.uk/search.axd?command=getcontent&server=Detail&value='
+        if from_dataframe and not imgs_ids:
+            imgs_ids = list(self.df[~self.df['img_loc'].isnull()]['img_loc'])
+            imgs_ids = [i for e in imgs_ids for i in e.split('|') if i.startswith('PF')]
+            
+            
+       
         for img in tqdm(imgs_ids):
             if (self.img_folder / ( img+'.jpg')).is_file(): 
                 continue  
-            
+                
             url = base_url + img
             request  = requests.get(url)
             if request.status_code == 200: # check if request is successful  
-               
+            
                 with open(self.img_folder / ( img+'.jpg'), 'wb') as f:
                     f.write(request.content)
                     time.sleep(random.uniform(.25, .25)) # randomize the requests
+
 
 
 # ----------------------------------

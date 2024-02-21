@@ -3,6 +3,13 @@ from chromadb import Documents, EmbeddingFunction, Embeddings
 from PIL import JpegImagePlugin
 import torch
 import numpy as np
+from spacy.lang.en import English 
+from tqdm.notebook import tqdm
+from keybert import KeyBERT
+
+nlp = English()
+nlp.add_pipe('sentencizer')
+kw_model = KeyBERT()
 
 class SigLIPEmbedder(EmbeddingFunction):
     """embedding function for indexing (batches of) text or images"""
@@ -38,3 +45,66 @@ class SigLIPEmbedder(EmbeddingFunction):
         embeddings = embeddings / embeddings.norm(p=2, dim=-1, keepdim=True)
         
         return embeddings.tolist()
+    
+
+def batchify(content_list, n=20):
+    for i in range(0, len(content_list), n):
+        yield np.array(content_list[i:min(i+n,len(content_list))])
+
+def reshape_text_batch(batch, collection):
+    
+    content = [[b[0],b[1],s,b[3]] 
+                       for b in list(batch) 
+                           for s in nlp(str(b[2])).sents if len(s) > 10 # str(b[1])+ ', '+
+                                  ] # parameter here
+    
+    metadatas = [{'record_id':e[0],
+                 'name':e[1],
+                 #'img_path': str(e[4]),
+                 'img_url': str(e[3]),
+                 'input_modality': 'text',
+                 'collection': collection
+                        }
+                    for e in content
+                    ]
+    content = [str(c[2]) for c in content]
+    return content,metadatas
+
+def reshape_keyword_batch(batch, collection):
+    
+    content = [[b[0],b[1],kw,b[3]] 
+                       for b in list(batch) 
+                           for kw in set([w[0] for w in kw_model.extract_keywords(
+                                   str(b[2]), 
+                                   #keyphrase_ngram_range=(1, 1), 
+                                   stop_words='english')]) # str(b[1])+ ', '+
+                                  ] 
+    
+    metadatas = [{'record_id':e[0],
+                 'name':e[1],
+                 #'img_path': str(e[4]),
+                 'img_url': str(e[3]),
+                 'input_modality': 'keyword',
+                 'collection': collection
+                        }
+                    for e in content
+                    ]
+    content = [str(c[2]) for c in content]
+    return content,metadatas
+
+
+def reshape_image_batch(batch, collection):
+    
+    content = [str(i) for i in list(batch[:,-1])]
+    
+    metadatas = [{'record_id':e[0],
+                  'name':e[1],
+                  #'img_path': str(e[4]),
+                  'img_url': str(e[3]),
+                  'input_modality':'image',
+                  'collection': collection
+                        }
+                    for e in batch
+                    ]
+    
+    return content,metadatas
