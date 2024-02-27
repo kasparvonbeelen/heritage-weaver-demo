@@ -1,11 +1,14 @@
 # heritage-weaver
 Code for Weaving Heritage Collections. Congruence Engine Technical Investigations
 
-## Run on Colab
+## Run on Colab
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kasparvonbeelen/weavingtools/blob/2-vdb/colab_notebooks/Colab_Query.ipynb)
 
- 
+### Query the Collections
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kasparvonbeelen/weavingtools/blob/2-vdb/colab_notebooks/Query.ipynb)
+
+### Annotate
+ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kasparvonbeelen/weavingtools/blob/2-vdb/colab_notebooks/Query.ipynb)
 
 ## Local Installation
 
