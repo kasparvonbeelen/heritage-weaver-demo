@@ -175,6 +175,7 @@ ce_*/
 annotations/*
 *.gexf
 test*
+*.zip
 
 .DS_Store
 ._.DS_Store
