@@ -169,3 +169,14 @@ data/
 ce_vector_db/
 *.html
 mns_imgs/
+*.json
+ce_multimodal_db/*
+ce_*/
+annotations/*
+*.gexf
+test*
+
+.DS_Store
+._.DS_Store
+**/.DS_Store
+**/._.DS_Store

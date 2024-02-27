@@ -1,6 +1,3 @@
-import ipyannotations.text
-import ipyannotations.images
-import ipyannotations.generic
 from PIL import Image
 import matplotlib.pyplot as plt
 
