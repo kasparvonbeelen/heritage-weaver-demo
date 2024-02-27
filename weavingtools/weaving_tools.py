@@ -52,7 +52,7 @@ def open_image(record,target_col='img_path'):
 #             plt.imshow(img)
 #         plt.show()
 
-def plot_query_results(results, collection_df):
+def plot_query_results(results, collection_df, source='img_path'):
     result_df = pd.DataFrame(results['metadatas'][0])
     result_df['similarity'] = 1 - np.array(results['distances'][0])
     top_results = result_df.groupby('record_id')['similarity'].max().sort_values(ascending=False)#.index.tolist()
@@ -60,7 +60,7 @@ def plot_query_results(results, collection_df):
     query_df = pd.DataFrame(
                 top_results
             ).merge(
-                collection_df[['record_id','img_path','description']],
+                collection_df[['record_id',source,'description']],
                 left_index=True,
                 right_on='record_id',
                 how='left'
@@ -69,8 +69,10 @@ def plot_query_results(results, collection_df):
     columns = 2
     rows = 5
     for i in range(1, columns*rows +1):
-            
-            img = Image.open(query_df.loc[i-1,'img_path'])
+            if source == 'img_url':
+                img = Image.open(requests.get(query_df.loc[i-1,source], stream=True).raw).convert("RGB")
+            else:
+                img = Image.open(query_df.loc[i-1,source])
 
             ax = fig.add_subplot(rows, columns, i,)
             title = f"{query_df.loc[i-1,'record_id']}" # 
