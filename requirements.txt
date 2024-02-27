@@ -1,8 +1,6 @@
 chromadb==0.4.22
 datasets==2.7.1
-jupyter
 keybert==0.7.0
-lxml==5.1.0
 matplotlib==3.7.2
 numpy==1.24.3
 pandas==1.3.5
@@ -10,7 +8,5 @@ pillow==10.2.0
 requests==2.31.0
 seaborn==0.13.2
 spacy
-torch==2.0.1
-torchvision==0.15.2
 tqdm==4.65.0
 transformers==4.37.1
