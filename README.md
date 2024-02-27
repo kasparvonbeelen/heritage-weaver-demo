@@ -3,7 +3,7 @@ Code for Weaving Heritage Collections. Congruence Engine Technical Investigation
 
 ## Run on Colab
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kasparvonbeelen/weavingtools/blob/2-vdb/Colab_demo.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kasparvonbeelen/weavingtools/blob/2-vdb/colab_notebooks/Colab_Query.ipynb)
 
  
 
