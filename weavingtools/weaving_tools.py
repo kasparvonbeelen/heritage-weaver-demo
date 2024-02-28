@@ -83,14 +83,14 @@ def plot_query_results(results, collection_df, source='img_path'):
     plt.show()
     return query_df
 
-def get_query_results(results, collection_df):
+def get_query_results(results, collection_df, source='img_path'):
     result_df = pd.DataFrame(results['metadatas'][0])
     result_df['similarity'] = 1 - np.array(results['distances'][0])
     top_results = result_df.groupby('record_id')['similarity'].max().sort_values(ascending=False)#.index.tolist()
     return pd.DataFrame(
                 top_results
             ).merge(
-                collection_df[['record_id','img_path','description']],
+                collection_df[['record_id',source,'description']],
                 left_index=True,
                 right_on='record_id',
                 how='left'
