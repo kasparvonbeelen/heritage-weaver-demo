@@ -5,12 +5,12 @@ Code for Weaving Heritage Collections. Congruence Engine Technical Investigation
 
 
 ### Query the Collections
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kasparvonbeelen/weavingtools/blob/2-vdb/colab_notebooks/Query.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kasparvonbeelen/heritageweaver/blob/2-vdb/colab_notebooks/Query.ipynb)
 
 ### Annotate
- [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kasparvonbeelen/weavingtools/blob/2-vdb/colab_notebooks/Annotate.ipynb)
+ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kasparvonbeelen/heritageweaver/blob/2-vdb/colab_notebooks/Annotate.ipynb)
 
-## Local Installation
+## Instructions for Local Installation 
 
 ```
 conda create -n heritageweaver python=3.9
