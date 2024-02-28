@@ -8,7 +8,7 @@ Code for Weaving Heritage Collections. Congruence Engine Technical Investigation
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kasparvonbeelen/weavingtools/blob/2-vdb/colab_notebooks/Query.ipynb)
 
 ### Annotate
- [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kasparvonbeelen/weavingtools/blob/2-vdb/colab_notebooks/Query.ipynb)
+ [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kasparvonbeelen/weavingtools/blob/2-vdb/colab_notebooks/Annotate.ipynb)
 
 ## Local Installation
 
