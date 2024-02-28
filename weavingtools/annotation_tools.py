@@ -1,10 +1,16 @@
 from PIL import Image
 import matplotlib.pyplot as plt
+import requests
 
+def open_image(img_uri):
+    if img_uri.startswith('http'):
+        return Image.open(requests.get(img_uri, stream=True).raw).convert("RGB")
+    return Image.open(img_uri)
+    
 
 def plot_by_uri(img_uri):
     fig = plt.figure(figsize=(10, 10))
-    img = Image.open(img_uri)
+    img = open(img_uri)
     ax = fig.add_subplot(1, 1, 1,)
     ax.set_xticks([])
     ax.set_yticks([])
@@ -13,7 +19,7 @@ def plot_by_uri(img_uri):
 
 def plot_by_record(record):
     fig = plt.figure(figsize=(10, 10))
-    img = Image.open(record[-2])
+    img = open_image(record[-2]) 
     ax = fig.add_subplot(1, 1, 1,)
     ax.set_xticks([])
     ax.set_yticks([])
@@ -28,7 +34,7 @@ def plotting_pairs(img_pair):
     rows = 1
     
     for i in range(1, columns*rows +1):
-        img = Image.open(img_pair[i-1])
+        img = open_image(img_pair[i-1])
 
         ax = fig.add_subplot(rows, columns, i,)
         #title = f"{query_df.loc[i-1,'record_id']}" # 
