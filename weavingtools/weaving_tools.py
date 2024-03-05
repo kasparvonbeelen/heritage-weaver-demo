@@ -14,7 +14,7 @@ import numpy as np
 import json
 #import os
 #import PIL
-from embedding_tools import SigLIPEmbedder
+from .embedding_tools import SigLIPEmbedder
 import torch
 import chromadb
 from chromadb.utils.data_loaders import ImageLoader
