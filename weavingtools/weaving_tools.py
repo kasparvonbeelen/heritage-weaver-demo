@@ -10,6 +10,7 @@ from PIL import Image
 from typing import Union
 import pandas as pd
 import numpy as np
+import scipy.spatial as sp
 #import tensorflow as tf
 import json
 #import os
