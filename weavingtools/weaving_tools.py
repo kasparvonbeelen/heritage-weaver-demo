@@ -14,7 +14,10 @@ import numpy as np
 import json
 #import os
 #import PIL
+from embedding_tools import SigLIPEmbedder
 import torch
+import chromadb
+from chromadb.utils.data_loaders import ImageLoader
 #import torchvision.transforms as T
 import matplotlib.pyplot as plt
 import requests
@@ -110,25 +113,92 @@ def unique_substrings(substring, string_list):
             return False
     return True
 
+def retrieve_records(db,coll,modality):   
+    filters = {
+        "$and": [
+            {
+                "input_modality": {
+                    "$eq": modality
+                }
+            },
+            {
+                "collection": {
+                    "$eq" : coll
+                }
+            }
+            ]
+        }
 
-def classify_zero_shot(img_path, labels, model, processor):
-    image = Image.open(img_path)
-    inputs = processor(images=image, text=labels, return_tensors="pt", padding=True)
+    return db.get(
+                where=filters,
+                include=['embeddings','metadatas'] 
+                    )
+
+
+def get_data(db,coll1, coll2, modality1, modality2): 
+    data1 = retrieve_records(db,coll1, modality1)
+    data2 = retrieve_records(db,coll2, modality2)
     
-    with torch.no_grad():
-        outputs = model(**inputs)
+    inputs = dict()
     
-    logits = outputs.logits_per_image[0]
-    probs = logits.softmax(dim=-1).numpy()
-    scores = probs.tolist()
+    for i,(name,data) in enumerate([(coll1, data1), (coll2,data2)]):
+        i+=1
+        inputs[f'coll{i}_ids'] = data['ids']
+        inputs[f'coll{i}_rids'] = [record['record_id'] for record in data['metadatas']]
+        inputs[f'coll{i}_emb'] = np.matrix(data['embeddings'])
+        inputs[f'coll{i}_len'] = len(data['ids'])
+        inputs[f'coll{i}_name'] = name
     
-    return [
-        {"score": score, "label": candidate_label}
-            for score, candidate_label in sorted(
-                                            zip(scores, labels),  # probs
-                                                 key=lambda x: -x[0]
-                                                    )
-                ]
+    return inputs
+
+def compute_similarities(inputs,percentile, plot_matrix=False):
+    image_similarities = 1 - sp.distance.cdist(inputs['coll1_emb'],inputs['coll2_emb'], 'cosine')
+    threshold = np.percentile(image_similarities.reshape(-1), percentile) 
+    image_similarities[image_similarities >= threshold] = 1
+    image_similarities[image_similarities < threshold] = 0
+   
+    return image_similarities
+
+def get_edges(db,coll1,coll2,modality1,modality2,percentile,**kwargs):
+    inputs = get_data(db, coll1, coll2, modality1, modality2)
+    image_similarities = compute_similarities(inputs, percentile)
+    mapping1 = {i:j for i,j in zip(range(len(inputs['coll1_emb'])),inputs['coll1_rids'])}
+    mapping2 = {i:j for i,j in zip(range(len(inputs['coll2_emb'])),inputs['coll2_rids'])}
+
+    edges = [(mapping1[i],mapping2[j]) for i,j in zip(*np.where(image_similarities > 0))]
+    return edges, image_similarities, inputs
+
+
+def load_db(name="ce_comms_db", checkpoint='google/siglip-base-patch16-224'):
+    siglip_embedder = SigLIPEmbedder(checkpoint)
+    client = chromadb.PersistentClient(path=name)
+    data_loader = ImageLoader()
+    collection_db = client.get_or_create_collection(name=name, 
+                                             metadata={"hnsw:space": "cosine"},
+                                             embedding_function=siglip_embedder, 
+                                             data_loader=data_loader
+                                            )
+    return collection_db
+
+
+# def classify_zero_shot(img_path, labels, model, processor):
+#     image = Image.open(img_path)
+#     inputs = processor(images=image, text=labels, return_tensors="pt", padding=True)
+    
+#     with torch.no_grad():
+#         outputs = model(**inputs)
+    
+#     logits = outputs.logits_per_image[0]
+#     probs = logits.softmax(dim=-1).numpy()
+#     scores = probs.tolist()
+    
+#     return [
+#         {"score": score, "label": candidate_label}
+#             for score, candidate_label in sorted(
+#                                             zip(scores, labels),  # probs
+#                                                  key=lambda x: -x[0]
+#                                                     )
+#                 ]
 
 # ----------------------------------
 # --- Generic Collection Class -----
