@@ -1,6 +1,6 @@
 chromadb==0.4.22
 datasets==2.7.1
-gdown=4.6.0
+gdown==4.6.0
 ipyannotations==0.5.1
 keybert==0.7.0
 matplotlib==3.7.2
