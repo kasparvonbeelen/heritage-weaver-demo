@@ -4,8 +4,11 @@ import requests
 
 def open_image(img_uri):
     if img_uri.startswith('http'):
+        if 'sciencemuseum' in img_uri:
+            img_uri = img_uri.replace('.uk/images/','.uk/').lower()
         return Image.open(requests.get(img_uri, stream=True).raw).convert("RGB")
     return Image.open(img_uri)
+    
     
 
 def plot_by_uri(img_uri):
