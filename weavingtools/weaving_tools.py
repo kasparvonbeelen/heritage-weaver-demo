@@ -74,7 +74,10 @@ def plot_query_results(results, collection_df, source='img_path'):
     rows = 5
     for i in range(1, columns*rows +1):
             if source == 'img_url':
-                img = Image.open(requests.get(query_df.loc[i-1,source], stream=True).raw).convert("RGB")
+                img_path = query_df.loc[i-1,source]
+                if 'sciencemuseum' in img_path:
+                    img_path = img_path.replace('.uk/images/','.uk/').lower()
+                img = Image.open(requests.get(img_path, stream=True).raw).convert("RGB")
             else:
                 img = Image.open(query_df.loc[i-1,source])
 
