@@ -6,7 +6,7 @@ from PIL import Image
 #from transformers import  AutoModel, AutoFeatureExtractor #, AutoTokenizer
 #from tensorboard.plugins import projector
 #from transformers import CLIPProcessor, CLIPModel, CLIPImageProcessor, CLIPTokenizer
-#from lxml import etree
+from lxml import etree
 from typing import Union
 import pandas as pd
 import numpy as np
@@ -25,8 +25,6 @@ import requests
 import random
 import time
 from json import JSONDecodeError
-
-
 
 # ----------------------------------
 # -------- Helper functions --------
@@ -58,6 +56,7 @@ def open_image(record,target_col='img_path'):
 
 def plot_query_results(results, collection_df, source='img_path'):
     result_df = pd.DataFrame(results['metadatas'][0])
+
     result_df['similarity'] = 1 - np.array(results['distances'][0])
     top_results = result_df.groupby('record_id')['similarity'].max().sort_values(ascending=False)#.index.tolist()
     
@@ -69,6 +68,8 @@ def plot_query_results(results, collection_df, source='img_path'):
                 right_on='record_id',
                 how='left'
                     ).reset_index(drop=True)
+    
+
     fig = plt.figure(figsize=(10, 20))
     columns = 2
     rows = 5
@@ -155,22 +156,49 @@ def get_data(db,coll1, coll2, modality1, modality2):
     
     return inputs
 
-def compute_similarities(inputs,percentile, plot_matrix=False):
-    image_similarities = 1 - sp.distance.cdist(inputs['coll1_emb'],inputs['coll2_emb'], 'cosine')
-    threshold = np.percentile(image_similarities.reshape(-1), percentile) 
-    image_similarities[image_similarities >= threshold] = 1
-    image_similarities[image_similarities < threshold] = 0
+# def compute_similarities(inputs,percentile=False, plot_matrix=False):
+#     similarities = 1 - sp.distance.cdist(inputs['coll1_emb'],inputs['coll2_emb'], 'cosine')
+#     threshold = np.percentile(similarities.reshape(-1), percentile) 
+#     if percentile:
+#         similarities[similarities >= threshold] = 1
+#         similarities[similarities < threshold] = 0
    
-    return image_similarities
+#     return similarities
+
+def compute_similarities(inputs,percentile=False, agg_function=np.max,plot_matrix=False):
+    print('--- Get similarities ---')
+    similarities = 1 - sp.distance.cdist(inputs['coll1_emb'],inputs['coll2_emb'], 'cosine')
+    threshold = np.percentile(similarities.reshape(-1), percentile) 
+
+    print('--- Aggregate similarities by record ---')
+    df = pd.DataFrame(similarities, index=inputs['coll1_rids'], columns=inputs['coll2_rids']) # 
+
+    
+    #similarities = df.stack().reset_index().groupby(['level_0','level_1']).max().unstack()
+    similarities = df.stack().reset_index().groupby(['level_0','level_1']).max().unstack()
+    inputs['coll1_rids'],inputs['coll2_rids'] = list(similarities.index), list(similarities.columns.droplevel())
+    similarities = similarities.values
+
+
+
+    print('--- Threshold similarities and binarize ---')
+    if percentile:
+        similarities[similarities >= threshold] = 1
+        similarities[similarities < threshold] = 0
+   
+    return inputs, similarities
 
 def get_edges(db,coll1,coll2,modality1,modality2,percentile,**kwargs):
+    print('Get inputs...')
     inputs = get_data(db, coll1, coll2, modality1, modality2)
-    image_similarities = compute_similarities(inputs, percentile)
-    mapping1 = {i:j for i,j in zip(range(len(inputs['coll1_emb'])),inputs['coll1_rids'])}
-    mapping2 = {i:j for i,j in zip(range(len(inputs['coll2_emb'])),inputs['coll2_rids'])}
+    print('Compute similarities...')
+    inputs, similarities = compute_similarities(inputs, percentile)
+    print('Retrieve edges...')
+    mapping1 = {i:j for i,j in zip(range(len(inputs['coll1_rids'])),inputs['coll1_rids'])}
+    mapping2 = {i:j for i,j in zip(range(len(inputs['coll2_rids'])),inputs['coll2_rids'])}
 
-    edges = [(mapping1[i],mapping2[j]) for i,j in zip(*np.where(image_similarities > 0))]
-    return edges, image_similarities, inputs
+    edges = [(mapping1[i],mapping2[j]) for i,j in zip(*np.where(similarities > 0))]
+    return edges, similarities, inputs
 
 
 def load_db(name="ce_comms_db", checkpoint='google/siglip-base-patch16-224'):
@@ -425,7 +453,7 @@ class SMGCollection(MultiModalCollection):
             Arguments:
                 loc (str): name of the image
             """
-            url = base_url + '/'+ loc
+            url = (base_url + '/'+ loc).lower()
             img_name = loc.replace('/','|')
             request  = requests.get(url)
             if request.status_code == 200: # check if request is successful    
@@ -436,7 +464,8 @@ class SMGCollection(MultiModalCollection):
             return False
 
         print('before downloading',len(self.images)) 
-        base_url = 'https://coimages.sciencemuseumgroup.org.uk/images'
+        #base_url = 'https://coimages.sciencemuseumgroup.org.uk/images'
+        base_url = 'https://coimages.sciencemuseumgroup.org.uk'
         self.df.downloaded = self.df.img_path.apply(lambda x: False if pd.isnull(x) else  Path(x).is_file())
 
         if n > 0:
@@ -477,28 +506,38 @@ class BTCollection(MultiModalCollection):
     def fetch_images(self, n=-1):
         def fetch_image(loc: str):   
            
-            url = base_url + '/'+ loc
+            #url = base_url + '/'+ loc
+            url = base_url + loc
             img_name = loc.split('/')[-1]
+            print(url)
             request  = requests.get(url)
+            print(request.status_code)
             if request.status_code == 200:
                
                 with open(self.img_folder / img_name, 'wb') as f:
+                    print(self.img_folder / img_name)
                     f.write(request.content)
                     time.sleep(random.uniform(.5, 1.5))
                     return True
             return False
-        
-        img_names = list(self.df[~self.df.img_loc.isnull()].img_loc)
+        self.df.downloaded = self.df.img_path.apply(lambda x: False if pd.isnull(x) else  Path(x).is_file())
+        print('before downloading',self.df.downloaded.sum()) 
+        img_names = list(self.df[(~self.df.img_loc.isnull()) & (self.df.downloaded == False)].img_loc)
+        #print(len(img_names))
         img_names =  [img for img in img_names if (not (self.img_folder / img).is_file()) and (len(img) > 0)][:n]
        
-        print('before downloading',len(self.images)) 
+        #print('before downloading',len(self.images)) 
+        
 
         base_url = 'http://www.digitalarchives.bt.com/CalmView/GetImage.ashx?db=Catalog&type=default&fname='
         for img in tqdm(img_names):
             fetch_image(img)
 
-        self.images = set(self.img_folder.glob('*.*')) 
-        print('after downloading',len(self.images))
+        #self.images = set(self.img_folder.glob('*.*')) 
+        #print('after downloading',len(self.images))
+        self.df.downloaded = self.df.img_path.apply(lambda x: False if pd.isnull(x) else  Path(x).is_file())
+        print('before downloading',self.df.downloaded.sum()) 
+        
 
 
     def load_from_xml(self,path):
@@ -563,7 +602,7 @@ class NMSCollection(MultiModalCollection):
         col_mapping ={'object_number':'record_id', # Check what is the best identifier
          'object_name':'name',
          'object_category':'taxonomy',
-         'reproduction.reference':'img_loc'}
+         'media.reference':'img_loc'}
         
         self.df.rename(col_mapping, axis=1, inplace=True)
         self.df['img_loc'] = self.df['img_loc'].apply(lambda x: x.split('|') if not pd.isnull(x) else [])

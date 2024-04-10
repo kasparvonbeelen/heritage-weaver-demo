@@ -27,7 +27,7 @@ class SigLIPEmbedder(EmbeddingFunction):
         # when creating the vector database
         with torch.no_grad():
             if isinstance(input[0],(JpegImagePlugin.JpegImageFile, np.ndarray)):
-           
+                
                 #images = [Image.open(p) for p in input]
                 inputs = self.processor(images=input, return_tensors="pt",padding='max_length')# padding="max_length")
                 outputs = self.model.vision_model(**inputs)
@@ -55,7 +55,7 @@ def reshape_text_batch(batch, collection):
     
     content = [[b[0],b[1],s,b[3]] 
                        for b in list(batch) 
-                           for s in nlp(str(b[1])+ '. ' + str(b[2])).sents if len(s) > 10 # str(b[1])+ ', '+
+                           for s in nlp(str(b[1])+ '. ' + str(b[2])).sents if len(s) > 2 # str(b[1])+ ', '+
                                   ] # parameter here
     
     metadatas = [{'record_id':e[0],
