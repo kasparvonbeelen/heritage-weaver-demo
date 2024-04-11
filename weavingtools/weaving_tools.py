@@ -1,25 +1,16 @@
 from tqdm.notebook import tqdm
 from pathlib import Path
 from PIL import Image
-#from datasets import Dataset, concatenate_datasets
-#from sentence_transformers import SentenceTransformer #, util
-#from transformers import  AutoModel, AutoFeatureExtractor #, AutoTokenizer
-#from tensorboard.plugins import projector
-#from transformers import CLIPProcessor, CLIPModel, CLIPImageProcessor, CLIPTokenizer
 from lxml import etree
 from typing import Union
 import pandas as pd
 import numpy as np
 import scipy.spatial as sp
-#import tensorflow as tf
 import json
-#import os
-#import PIL
 from .embedding_tools import SigLIPEmbedder
 import torch
 import chromadb
 from chromadb.utils.data_loaders import ImageLoader
-#import torchvision.transforms as T
 import matplotlib.pyplot as plt
 import requests
 import random
@@ -36,23 +27,6 @@ def lower_case(examples, target_col='description'):
 def open_image(record,target_col='img_path'):
   return {'image' : Image.open(record[target_col])}
 
-
-# def plot_images(query_df):
-#         """plot nearest neighbour images"""
-#         fig = plt.figure(figsize=(25, 10))
-#         columns = 3
-#         rows = 3
-#         for i in range(1, columns*rows +1):
-            
-#             img = Image.open(query_df.loc[i-1,'img_path'])
-
-#             ax = fig.add_subplot(rows, columns, i,)
-#             title = f"{query_df.loc[i-1,'record_id']}" # 
-#             ax.title.set_text(title)
-#             ax.set_xticks([])
-#             ax.set_yticks([])
-#             plt.imshow(img)
-#         plt.show()
 
 def plot_query_results(results, collection_df, source='img_path'):
     result_df = pd.DataFrame(results['metadatas'][0])
@@ -156,14 +130,6 @@ def get_data(db,coll1, coll2, modality1, modality2):
     
     return inputs
 
-# def compute_similarities(inputs,percentile=False, plot_matrix=False):
-#     similarities = 1 - sp.distance.cdist(inputs['coll1_emb'],inputs['coll2_emb'], 'cosine')
-#     threshold = np.percentile(similarities.reshape(-1), percentile) 
-#     if percentile:
-#         similarities[similarities >= threshold] = 1
-#         similarities[similarities < threshold] = 0
-   
-#     return similarities
 
 def compute_similarities(inputs,percentile=False, agg_function=np.max,plot_matrix=False):
     print('--- Get similarities ---')
@@ -212,26 +178,6 @@ def load_db(name="ce_comms_db", checkpoint='google/siglip-base-patch16-224'):
                                             )
     return collection_db
 
-
-# def classify_zero_shot(img_path, labels, model, processor):
-#     image = Image.open(img_path)
-#     inputs = processor(images=image, text=labels, return_tensors="pt", padding=True)
-    
-#     with torch.no_grad():
-#         outputs = model(**inputs)
-    
-#     logits = outputs.logits_per_image[0]
-#     probs = logits.softmax(dim=-1).numpy()
-#     scores = probs.tolist()
-    
-#     return [
-#         {"score": score, "label": candidate_label}
-#             for score, candidate_label in sorted(
-#                                             zip(scores, labels),  # probs
-#                                                  key=lambda x: -x[0]
-#                                                     )
-#                 ]
-
 # ----------------------------------
 # --- Generic Collection Class -----
 # ----------------------------------
@@ -272,67 +218,6 @@ class MultiModalCollection(object):
     
     def __str__(self):
         return f'< catalogue with {self.df.shape[0]} records >'
-
-    # def extract_clip_embedding(self,record: dict, modality: str) -> dict:
-    #     """create clip embedding"""
-    #     return {f'clip_{modality}_embedding':self.clip_model.encode(record[modality])#.detach().cpu().numpy()
-    #             }
-
-    # def load_clip_model(self,clip_model_ckpt: str='clip-ViT-B-32'):
-    #     """load clip model and convert with sentence transformer"""
-    #     self.clip_model_ckpt = clip_model_ckpt
-    #     self.clip_model = SentenceTransformer(self.clip_model_ckpt)
-    #     self.clip_model.to(self.device)
-
-    # def embed_clip(self,
-    #                target_col: str,
-    #                modality: str,
-    #                model_ckpt: str="clip-ViT-B-32"):
-    #     """embed and text or image with clip
-    #     Arguments:
-    #         target_col (str): which columns to embed
-    #         modality (str): either 'text' or 'image'
-    #         model_ckpt (str): checkpoint of clip model to use
-    #     """
-        
-    #     if not hasattr(self,'clip_model'):
-    #         self.load_clip_model(model_ckpt)
-
-    #     if modality == 'text':
-    #         self.dataset = self.dataset.map(lower_case, fn_kwargs= {'target_col': target_col})
-            
-
-    #     elif modality == 'image':
-    #         self.dataset = self.dataset.map(open_image, fn_kwargs={'target_col': target_col})
-            
-    #     else:
-    #         raise Exception("Modality has to be either 'text' or 'image")
-
-    #     self.dataset = self.dataset.map(self.extract_clip_embedding, fn_kwargs= {'modality': modality})
-
-    # def vectorize_collection(self, clip_ckpt: str='clip-ViT-B-32',
-    #                           modalities= [('img_path','image'),('description','text')]):
-    #     """vectorize the collection"""
-    #     self.filter_records()
-
-    #     for target_col, modality in modalities:
-    #         print(f'Vectorizing {modality}')
-    #         self.embed_clip(target_col,modality,clip_ckpt)
-
-    # def add_embeddings_to_database(self, collection, modality):
-        
-    #     collection.add(
-    #             embeddings = [list(v) for v in self.dataset[f'clip_{modality}_embedding']],
-    #             documents=list([str(t) for t in self.dataset['description']]),
-    #             metadatas=[{"collection": self.collection_name,
-    #                         'modality': modality, 
-    #                         'img_path': row.img_path, 
-    #                         'img_url': row.img_url,
-    #                         #'name': row.names,
-    #                         'record_id': row.record_id
-    #                             } for i, row in self.df.iterrows()],
-    #         ids = [f'{row.record_id}_{modality}_{i}' for i, row in self.df.iterrows()] 
-    #     )
 
 
 # ----------------------------------

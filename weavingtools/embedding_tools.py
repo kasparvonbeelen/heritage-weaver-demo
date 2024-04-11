@@ -70,27 +70,6 @@ def reshape_text_batch(batch, collection):
     content = [str(c[2]) for c in content]
     return content,metadatas
 
-# def reshape_keyword_batch(batch, collection):
-    
-#     content = [[b[0],b[1],kw,b[3]] 
-#                        for b in list(batch) 
-#                            for kw in set([w[0] for w in kw_model.extract_keywords(
-#                                    str(b[2]), 
-#                                    #keyphrase_ngram_range=(1, 1), 
-#                                    stop_words='english')]) # str(b[1])+ ', '+
-#                                   ] 
-    
-#     metadatas = [{'record_id':e[0],
-#                  'name':e[1],
-#                  #'img_path': str(e[4]),
-#                  'img_url': str(e[3]),
-#                  'input_modality': 'keyword',
-#                  'collection': collection
-#                         }
-#                     for e in content
-#                     ]
-#     content = [str(c[2]) for c in content]
-#     return content,metadatas
 
 
 def reshape_image_batch(batch, collection):
