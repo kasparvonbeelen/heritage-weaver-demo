@@ -130,35 +130,39 @@ def get_data(db,coll1, coll2, modality1, modality2):
     
     return inputs
 
-
-def compute_similarities(inputs,percentile=False, agg_function=np.max,plot_matrix=False):
+def compute_similarities(inputs,agg_function,percentile, threshold, binarize):
     print('--- Get similarities ---')
     similarities = 1 - sp.distance.cdist(inputs['coll1_emb'],inputs['coll2_emb'], 'cosine')
-    threshold = np.percentile(similarities.reshape(-1), percentile) 
+    if percentile:
+        threshold = np.percentile(similarities.reshape(-1), percentile) 
 
+    print(f'--- Using {threshold} as threshold ---')
     print('--- Aggregate similarities by record ---')
     df = pd.DataFrame(similarities, index=inputs['coll1_rids'], columns=inputs['coll2_rids']) # 
 
-    
-    #similarities = df.stack().reset_index().groupby(['level_0','level_1']).max().unstack()
-    similarities = df.stack().reset_index().groupby(['level_0','level_1']).max().unstack()
+    if agg_function == 'mean':
+        similarities = df.stack().reset_index().groupby(['level_0','level_1']).mean().unstack()
+    elif agg_function == 'max':
+        similarities = df.stack().reset_index().groupby(['level_0','level_1']).max().unstack()
+    else:
+        raise Exception('Aggregation function not supported, select either mean or max')
+    #exec(f"similarities = df.stack().reset_index().groupby(['level_0','level_1']).{agg_function}().unstack()")
+    print(type(similarities))
     inputs['coll1_rids'],inputs['coll2_rids'] = list(similarities.index), list(similarities.columns.droplevel())
     similarities = similarities.values
 
-
-
     print('--- Threshold similarities and binarize ---')
-    if percentile:
+    if binarize:
         similarities[similarities >= threshold] = 1
         similarities[similarities < threshold] = 0
    
     return inputs, similarities
 
-def get_edges(db,coll1,coll2,modality1,modality2,percentile,**kwargs):
+def get_edges(db,coll1,coll2,modality1,modality2,agg_function,percentile=False, threshold=.9, binarize=True):
     print('Get inputs...')
     inputs = get_data(db, coll1, coll2, modality1, modality2)
     print('Compute similarities...')
-    inputs, similarities = compute_similarities(inputs, percentile)
+    inputs, similarities = compute_similarities(inputs,agg_function, percentile, threshold, binarize)
     print('Retrieve edges...')
     mapping1 = {i:j for i,j in zip(range(len(inputs['coll1_rids'])),inputs['coll1_rids'])}
     mapping2 = {i:j for i,j in zip(range(len(inputs['coll2_rids'])),inputs['coll2_rids'])}
@@ -412,8 +416,6 @@ class BTCollection(MultiModalCollection):
         img_names =  [img for img in img_names if (not (self.img_folder / img).is_file()) and (len(img) > 0)][:n]
        
         #print('before downloading',len(self.images)) 
-        
-
         base_url = 'http://www.digitalarchives.bt.com/CalmView/GetImage.ashx?db=Catalog&type=default&fname='
         for img in tqdm(img_names):
             fetch_image(img)

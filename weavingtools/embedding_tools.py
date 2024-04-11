@@ -63,6 +63,7 @@ def reshape_text_batch(batch, collection):
                  #'img_path': str(e[4]),
                  'img_url': str(e[3]),
                  'input_modality': 'text',
+                 'sentence': str(e[2]),
                  'collection': collection
                         }
                     for e in content
