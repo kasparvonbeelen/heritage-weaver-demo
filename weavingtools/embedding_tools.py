@@ -79,7 +79,7 @@ def reshape_image_batch(batch, collection):
     
     metadatas = [{'record_id':e[0],
                   'name':e[1],
-                  #'img_path': str(e[4]),
+                  'img_path': str(e[4]),
                   'img_url': str(e[3]),
                   'input_modality':'image',
                   'collection': collection

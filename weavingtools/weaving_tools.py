@@ -147,7 +147,6 @@ def compute_similarities(inputs,agg_function,percentile, threshold, binarize):
     else:
         raise Exception('Aggregation function not supported, select either mean or max')
     #exec(f"similarities = df.stack().reset_index().groupby(['level_0','level_1']).{agg_function}().unstack()")
-    print(type(similarities))
     inputs['coll1_rids'],inputs['coll2_rids'] = list(similarities.index), list(similarities.columns.droplevel())
     similarities = similarities.values
 
