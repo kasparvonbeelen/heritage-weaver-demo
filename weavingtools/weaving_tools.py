@@ -1,3 +1,4 @@
+from typing import *
 from tqdm.notebook import tqdm
 from pathlib import Path
 from PIL import Image
@@ -17,18 +18,25 @@ import random
 import time
 from json import JSONDecodeError
 
+ChromaDB = NewType('ChromaDB', chromadb.PersistentClient)
+
 # ----------------------------------
 # -------- Helper functions --------
 # ----------------------------------
 
-def lower_case(examples, target_col='description'):
+def lower_case(examples, target_col: str='description') -> Dict[str, List[str]]:
+    """function for lower casing all text in a dataset column"""
     return {'text': [t.lower() for t in examples[target_col]]}
 
-def open_image(record,target_col='img_path'):
+def open_image(record,target_col: str='img_path') -> Dict[str, Image.Image]:
+  """function for opening an image from a dataset column"""
   return {'image' : Image.open(record[target_col])}
 
 
-def plot_query_results(results, collection_df, source='img_path'):
+def plot_query_results(results: Dict, 
+                       collection_df: pd.DataFrame, 
+                       source: str='img_path') -> pd.DataFrame:
+    """function for plotting the results of a query"""
     result_df = pd.DataFrame(results['metadatas'][0])
 
     result_df['similarity'] = 1 - np.array(results['distances'][0])
@@ -65,7 +73,9 @@ def plot_query_results(results, collection_df, source='img_path'):
     plt.show()
     return query_df
 
-def get_query_results(results, collection_df, source='img_path'):
+def get_query_results(results: Dict, 
+                      collection_df: pd.DataFrame, 
+                      source: str='img_path') -> pd.DataFrame:
     result_df = pd.DataFrame(results['metadatas'][0])
     result_df['similarity'] = 1 - np.array(results['distances'][0])
     top_results = result_df.groupby('record_id')['similarity'].max().sort_values(ascending=False)#.index.tolist()
@@ -79,7 +89,7 @@ def get_query_results(results, collection_df, source='img_path'):
                     ).reset_index(drop=True)
     
 
-def unique_substrings(substring, string_list):
+def unique_substrings(substring: str, string_list: List[str]) -> bool:
     """
     Check if a substring appears in a list of strings.
 
@@ -92,7 +102,7 @@ def unique_substrings(substring, string_list):
             return False
     return True
 
-def retrieve_records(db,coll,modality):   
+def retrieve_records(db: ChromaDB,coll: str,modality: str) -> ChromaDB:   
     filters = {
         "$and": [
             {
@@ -114,7 +124,10 @@ def retrieve_records(db,coll,modality):
                     )
 
 
-def get_data(db,coll1, coll2, modality1, modality2): 
+def get_data(db: ChromaDB,
+             coll1: str, coll2: str, 
+             modality1: str, 
+             modality2: str) -> Dict[str, Union[str, List[str], np.ndarray]]: 
     data1 = retrieve_records(db,coll1, modality1)
     data2 = retrieve_records(db,coll2, modality2)
     
@@ -130,7 +143,11 @@ def get_data(db,coll1, coll2, modality1, modality2):
     
     return inputs
 
-def compute_similarities(inputs,agg_function,percentile, threshold, binarize):
+def compute_similarities(inputs: Dict[str, Union[str, List[str], np.ndarray]],
+                                      agg_function: Literal['mean','max'],
+                                      percentile: bool, 
+                                      threshold: float, 
+                                      binarize: bool) -> Tuple[Dict[str, Union[str, List[str], np.ndarray]], np.ndarray]:
     print('--- Get similarities ---')
     similarities = 1 - sp.distance.cdist(inputs['coll1_emb'],inputs['coll2_emb'], 'cosine')
     if percentile:
@@ -157,7 +174,9 @@ def compute_similarities(inputs,agg_function,percentile, threshold, binarize):
    
     return inputs, similarities
 
-def get_edges(db,coll1,coll2,modality1,modality2,agg_function,percentile=False, threshold=.9, binarize=True):
+def get_edges(db: ChromaDB,coll1: str,coll2: str,modality1: str,modality2: str,
+              agg_function: Literal['mean','max'],
+              percentile: bool=False, threshold: float=.9, binarize: bool=True):
     print('Get inputs...')
     inputs = get_data(db, coll1, coll2, modality1, modality2)
     print('Compute similarities...')
@@ -170,7 +189,7 @@ def get_edges(db,coll1,coll2,modality1,modality2,agg_function,percentile=False, 
     return edges, similarities, inputs
 
 
-def load_db(name="ce_comms_db", checkpoint='google/siglip-base-patch16-224'):
+def load_db(name: str="ce_comms_db", checkpoint: str='google/siglip-base-patch16-224') -> ChromaDB:
     siglip_embedder = SigLIPEmbedder(checkpoint)
     client = chromadb.PersistentClient(path=name)
     data_loader = ImageLoader()

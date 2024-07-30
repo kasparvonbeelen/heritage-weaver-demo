@@ -1,8 +1,9 @@
+from typing import List, Tuple
 from PIL import Image
 import matplotlib.pyplot as plt
 import requests
 
-def open_image(img_uri):
+def open_image(img_uri: str) -> Image.Image:
     if img_uri.startswith('http'):
         if 'sciencemuseum' in img_uri:
             img_uri = img_uri.replace('.uk/images/','.uk/').lower()
@@ -11,7 +12,7 @@ def open_image(img_uri):
     
     
 
-def plot_by_uri(img_uri):
+def plot_by_uri(img_uri: str) -> None:
     fig = plt.figure(figsize=(10, 10))
     img = open(img_uri)
     ax = fig.add_subplot(1, 1, 1,)
@@ -20,7 +21,7 @@ def plot_by_uri(img_uri):
     plt.imshow(img)
     plt.show()
 
-def plot_by_record(record):
+def plot_by_record(record: List[str]) -> None:
     fig = plt.figure(figsize=(10, 10))
     img = open_image(record[-2]) 
     ax = fig.add_subplot(1, 1, 1,)
@@ -31,7 +32,7 @@ def plot_by_record(record):
     print(record[-1])
 
    
-def plotting_pairs(img_pair):
+def plotting_pairs(img_pair: Tuple[str, str]) -> None:
     fig = plt.figure(figsize=(10, 10))
     columns = 2
     rows = 1
@@ -49,7 +50,7 @@ def plotting_pairs(img_pair):
         
     plt.show()
 
-def soft_wrap_text(text, max_char_length=40):
+def soft_wrap_text(text: str, max_char_length: int=40) -> str:
     words = text.split()
     lines = []
     current_line = ''
