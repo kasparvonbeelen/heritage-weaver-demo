@@ -98,7 +98,6 @@ def get_edges(db: ChromaDB,coll1: str,coll2: str,modality1: str,modality2: str,
 def plot_query_results(results: dict, 
                        source: str='img_path') -> pd.DataFrame:
     """function for plotting the results of a query"""
-    source = 'img_path'
     result_df = pd.DataFrame(results['metadatas'][0])
     result_df['similarity'] = 1 - np.array(results['distances'][0])
 
@@ -108,9 +107,12 @@ def plot_query_results(results: dict,
     rows = 5
     for i in range(1, columns*rows +1):
         if source == 'img_url':
-            img = Image.open(requests.get(result_df.loc[i-1,source], stream=True).raw).convert("RGB")
+            try:
+                img = Image.open(requests.get(result_df.loc[i-1,source], stream=True).raw).convert("RGB")
+            except:
+                img = Image.open('./heritageweaver/data/No_Image_Available.jpg').convert("RGB")
         elif source == 'img_path':
-            img = Image.open(result_df.loc[i-1,source])
+            img = Image.open(result_df.loc[i-1,source]).convert("RGB")
         ax = fig.add_subplot(rows, columns, i,)
         title = f"{result_df.loc[i-1,'record_id']} {result_df.loc[i-1,'similarity']:.3f}" # 
         ax.title.set_text(title)
