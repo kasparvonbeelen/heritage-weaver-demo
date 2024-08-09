@@ -1,4 +1,4 @@
-chromadb==0.4.22
+chromadb==0.5.3
 datasets==2.7.1
 gdown==4.6.0
 ipyannotations==0.5.1
