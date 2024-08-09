@@ -74,11 +74,11 @@ class ImageLoaderRGB():
 
 ChromaDB = NewType('ChromaDB', chromadb.PersistentClient)
 
-def load_db(name: str="ce_comms_db", checkpoint: str='google/siglip-base-patch16-224') -> ChromaDB:
+def load_db(clien_path: str='hw',db_name: str="heritage_weaver", checkpoint: str='google/siglip-base-patch16-224') -> ChromaDB:
     siglip_embedder = SigLIPEmbedder(checkpoint)
-    client = chromadb.PersistentClient(path=name)
+    client = chromadb.PersistentClient(path=clien_path)
     data_loader = ImageLoader()
-    collection_db = client.get_or_create_collection(name=name, 
+    collection_db = client.get_or_create_collection(name=db_name, 
                                              metadata={"hnsw:space": "cosine"},
                                              embedding_function=siglip_embedder, 
                                              data_loader=data_loader
@@ -100,8 +100,8 @@ def batchify(df: pd.DataFrame, batch_size: int=32) -> pd.DataFrame:
 
 def text_batch(batch: pd.DataFrame) -> Tuple[list, list]:
     """split the batch into content and metadatas for text indexing"""
-    batch['modality'] = 'text'
-    batch['sentence'] = batch.apply(lambda x: [x['name']]+[sent.text for sent in nlp(x.description).sents], axis=1)
+    batch.loc[:,'modality'] = 'text'
+    batch.loc[:,'sentence'] = batch.apply(lambda x: [x['name']]+[sent.text for sent in nlp(x.description).sents], axis=1)
     batch_exploded = batch.explode('sentence')
     content = [str(s) for s in batch_exploded.sentence]
     metadatas = batch_exploded[['record_id','name','sentence','img_url','img_path','modality','collection']].to_dict(orient='records')
@@ -111,7 +111,7 @@ def text_batch(batch: pd.DataFrame) -> Tuple[list, list]:
 def image_batch(batch: pd.DataFrame) -> Tuple[list, list]:
     """split the batch into content and metadatas for image indexing"""
     content = [str(path) for path in batch.img_path.values.tolist()]
-    batch['modality'] = 'image'
+    batch.loc[:,'modality'] = 'image'
     metadatas = batch[['record_id','name','img_url','img_path','modality','collection']].to_dict(orient='records') # 'description',
     return content, metadatas
 
@@ -129,12 +129,14 @@ def index_data(collection_db: ChromaDB, collection_df: pd.DataFrame, batch_size:
         collection_df (pd.DataFrame): the dataframe containing the collection to be indexed
         batch_size (int): the size of each batch
     """
+
+    # because all rows in the dataframe contain or describe a single image
+    # we iterate over all the rows in the dataframe and index them in the database
+    print('indexing images...')
     batches = batchify(collection_df, batch_size=batch_size)
 
     for batch in tqdm(batches, total=collection_df.shape[0]//batch_size):
         image_content, image_metadatas = image_batch(batch)
-        text_content, text_metadatas = text_batch(batch)
-        
         ids = get_ids(collection_db, image_content)
 
         collection_db.add(
@@ -142,7 +144,15 @@ def index_data(collection_db: ChromaDB, collection_df: pd.DataFrame, batch_size:
             uris = image_content,
             metadatas = image_metadatas
         )
+    
+    # to remove duplicate descriptions for objects related to multiple images
+    # we will deduplicate the dataframe by the 'record_id' column
+    print('indexing text...')
+    collection_df_deduplicated_text = collection_df.drop_duplicates(subset='record_id').reset_index(drop=True)
+    batches = batchify(collection_df_deduplicated_text, batch_size=batch_size)
 
+    for batch in tqdm(batches, total=collection_df_deduplicated_text.shape[0]//batch_size):
+        text_content, text_metadatas = text_batch(batch)
         ids = get_ids(collection_db, text_content)
         
         collection_db.add(
@@ -150,43 +160,3 @@ def index_data(collection_db: ChromaDB, collection_df: pd.DataFrame, batch_size:
             documents = text_content,
             metadatas = text_metadatas
         )
-
-# -------------------------------
-# ----- Redundant functions -----
-# -------------------------------
-
-# def reshape_text_batch(batch, collection):
-    
-#     content = [[b[0],b[1],s,b[3]] 
-#                        for b in list(batch) 
-#                            for s in nlp(str(b[1])+ '. ' + str(b[2])).sents if len(s) > 2 # str(b[1])+ ', '+
-#                                   ] # parameter here
-    
-#     metadatas = [{'record_id':e[0],
-#                  'name':e[1],
-#                  #'img_path': str(e[4]),
-#                  'img_url': str(e[3]),
-#                  'input_modality': 'text',
-#                  'sentence': str(e[2]),
-#                  'collection': collection
-#                         }
-#                     for e in content
-#                     ]
-#     content = [str(c[2]) for c in content]
-#     return content,metadatas
-
-# def reshape_image_batch(batch, collection):
-    
-#     content = [str(i) for i in list(batch[:,-1])]
-    
-#     metadatas = [{'record_id':e[0],
-#                   'name':e[1],
-#                   'img_path': str(e[4]),
-#                   'img_url': str(e[3]),
-#                   'input_modality':'image',
-#                   'collection': collection
-#                         }
-#                     for e in batch
-#                     ]
-    
-#     return content,metadatas

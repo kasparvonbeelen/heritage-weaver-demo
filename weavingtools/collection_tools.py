@@ -118,14 +118,21 @@ class SMGCollection(MultiModalCollection):
                 raw_record = json.loads(d) 
                 processed_record = self.process_json_record(raw_record)
                 data.append(processed_record)
+        
         self.df = pd.DataFrame(
                         data, 
-                        columns=['record_id','name','description','category','taxonomy','img_loc','img_name','img_path','downloaded']
+                        columns=['record_id','name','description','category','taxonomy','img_loc'] # 'img_name','img_path','downloaded'
                         )
+        
+        self.df =  self.df.explode('img_loc')
+        self.df['img_name'] =  self.df.img_loc.apply(lambda x: x.replace('/','|') if not x in ['','nan',np.nan] else '')
+        self.df['img_path'] =  self.df.apply(lambda x: self.img_folder / x.img_name if not x['img_name']=='' else '', axis=1)
+        self.df['downloaded'] =  self.df.img_path.apply(lambda x: True if x in self.images else False)
+
         # replace all nans with white space
         #self.df['base_url'] = 'https://coimages.sciencemuseumgroup.org.uk/'
         base_url = 'https://coimages.sciencemuseumgroup.org.uk/'
-        self.df['img_url'] = self.df.apply(lambda x: f'{base_url}{x.img_loc.lower()}' if x.img_loc else '', axis=1)
+        self.df['img_url'] = self.df.apply(lambda x: f'{base_url}{x.img_loc.lower()}' if not x.img_loc in ['','nan',np.nan] else '', axis=1)
         self.df.fillna('', inplace=True)
 
     def process_json_record(self,record: dict) -> list:
@@ -182,19 +189,21 @@ class SMGCollection(MultiModalCollection):
                                         #if not v.startswith('<') # optional, skip terms starting with <
                                                 ])
         
-        img_loc, img_name, img_path = '', '', ''
+        #img_loc, img_name, img_path = '', '', ''
+        img_loc = []
         multimedia = source.get('multimedia',None)
         if multimedia:
             # get the medium file size
-            img_loc =  multimedia[0]['processed']['medium']['location']
-            # reformat image file name, so it correspond to local path
-            # we in fetch_images replaced the forward slash with a |
-            img_name = img_loc.replace('/','|')
-            img_path = self.img_folder / img_name
+            for m in multimedia:
+                img_loc.append(m['processed']['medium']['location']) #  #multimedia[0]
+                # reformat image file name, so it correspond to local path
+                # we in fetch_images replaced the forward slash with a |
+                #img_name = img_loc.replace('/','|')
+                #img_path = self.img_folder / img_name
         
-        downloaded = img_path in self.images
+        #downloaded = self.img_folder / img_loc.replace('/','|') in self.images
         
-        return [record_id,names,description, first_category,taxonomy, img_loc ,img_name, img_path, downloaded]
+        return [record_id,names,description, first_category,taxonomy, img_loc ] # img_name, img_path, downloaded
     
     def fetch_images(self, n: int=0, record_ids=[]) -> None:
         """Given a json dump with all records fetch

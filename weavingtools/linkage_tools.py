@@ -3,13 +3,15 @@ import numpy as np
 import scipy.spatial as sp
 from .embedding_tools import ChromaDB
 from matplotlib import pyplot as plt
+from PIL import Image
+import requests
 from typing import Dict,  List, Tuple, Union, Literal
 
 def retrieve_records(db: ChromaDB,coll: str,modality: str) -> ChromaDB:   
     filters = {
         "$and": [
             {
-                "input_modality": {
+                "modality": {
                     "$eq": modality
                 }
             },
@@ -33,6 +35,7 @@ def get_data(db: ChromaDB,
              modality2: str) -> Dict[str, Union[str, List[str], np.ndarray]]: 
     data1 = retrieve_records(db,coll1, modality1)
     data2 = retrieve_records(db,coll2, modality2)
+    print(len(data1),len(data2))
     
     inputs = dict()
     
@@ -118,17 +121,18 @@ def plot_query_results(results: dict,
     return result_df
 
 def get_query_results(results: Dict, 
-                      collection_df: pd.DataFrame, 
+                      #collection_df: pd.DataFrame, 
                       source: str='img_path') -> pd.DataFrame:
     result_df = pd.DataFrame(results['metadatas'][0])
     result_df['similarity'] = 1 - np.array(results['distances'][0])
-    top_results = result_df.groupby('record_id')['similarity'].max().sort_values(ascending=False)#.index.tolist()
-    return pd.DataFrame(
-                top_results
-            ).merge(
-                collection_df[['record_id',source,'description']],
-                left_index=True,
-                right_on='record_id',
-                how='left'
-                    ).reset_index(drop=True)
+    #top_results = result_df.groupby('record_id')['similarity'].max().sort_values(ascending=False)#.index.tolist()
+    # return pd.DataFrame(
+    #             top_results
+    #         ).merge(
+    #             collection_df[['record_id',source,'description']],
+    #             left_index=True,
+    #             right_on='record_id',
+    #             how='left'
+    #                 ).reset_index(drop=True)
     
+    return result_df

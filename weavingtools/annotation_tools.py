@@ -5,10 +5,10 @@ import requests
 
 def open_image(img_uri: str) -> Image.Image:
     if img_uri.startswith('http'):
-        if 'sciencemuseum' in img_uri:
-            img_uri = img_uri.replace('.uk/images/','.uk/').lower()
+        #if 'sciencemuseum' in img_uri:
+        #    img_uri = img_uri.replace('.uk/images/','.uk/').lower()
         return Image.open(requests.get(img_uri, stream=True).raw).convert("RGB")
-    return Image.open(img_uri)
+    return Image.open(img_uri).convert("RGB")
     
     
 
@@ -23,7 +23,7 @@ def plot_by_uri(img_uri: str) -> None:
 
 def plot_by_record(record: List[str]) -> None:
     fig = plt.figure(figsize=(10, 10))
-    img = open_image(record[-2]) 
+    img = open_image(record[2]) 
     ax = fig.add_subplot(1, 1, 1,)
     ax.set_xticks([])
     ax.set_yticks([])
