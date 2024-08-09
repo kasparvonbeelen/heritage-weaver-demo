@@ -3,6 +3,6 @@ pip install -qr requirements.txt
 # download data database and some additional metadata
 cd /content/
 pip install --upgrade --no-cache-dir gdown
-gdown 19a91qQXxeU0zZqv49UrP7h2BZ82lEiUD
+gdown 1r8ddjSuhtC4ZEmcEu15o5TV2dX35Qj12
 # unzip archive with vector database
-unzip -qq ce_comms_db_08042024.zip
+unzip -qq hw.zip
