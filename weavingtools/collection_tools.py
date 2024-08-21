@@ -308,7 +308,8 @@ class NMSCollection(MultiModalCollection):
         self.df['img_path'] = self.df.img_name.apply(lambda x: self.img_folder/ x if not pd.isnull(x) else x)
         self.df['downloaded'] = self.df.img_path.apply(lambda x: x.is_file() if not pd.isnull(x) else False)
         self.df['img_path'] = self.df['img_path'].apply(lambda x: str(x))
-        base_url = 'https://www.nms.ac.uk/search.axd?command=getcontent&server=Detail&value='
+        base_url = 'https://www.nms.ac.uk/api/axiell?command=getcontent&server=Detail&value='
+        #base_url = 'https://www.nms.ac.uk/search.axd?command=getcontent&server=Detail&value='
         self.df['img_url'] = self.df.apply(lambda x: f'{base_url}{x.img_loc}'.strip() if x.img_loc else '', axis=1)
         self.df = self.df[['record_id','name','description','category','taxonomy','img_loc','img_name','img_path','img_url','downloaded']]
 
@@ -317,7 +318,8 @@ class NMSCollection(MultiModalCollection):
         self.df = pd.read_csv(path_to_csv, index_col=0)
 
     def fetch_images(self,from_dataframe=True,imgs_ids=None,**kwargs):
-        base_url = 'https://www.nms.ac.uk/search.axd?command=getcontent&server=Detail&value='
+        base_url = 'https://www.nms.ac.uk/api/axiell?command=getcontent&server=Detail&value='
+        #base_url = 'https://www.nms.ac.uk/search.axd?command=getcontent&server=Detail&value='
         if from_dataframe and not imgs_ids:
             imgs_ids = list(self.df[~self.df['img_loc'].isnull()]['img_loc'])
             imgs_ids = [i for e in imgs_ids for i in e.split('|') if i.startswith('PF')]

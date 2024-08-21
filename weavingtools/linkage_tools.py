@@ -108,9 +108,17 @@ def plot_query_results(results: dict,
     for i in range(1, columns*rows +1):
         if source == 'img_url':
             try:
-                img = Image.open(requests.get(result_df.loc[i-1,source], stream=True).raw).convert("RGB")
+                img = Image.open(requests.get(img_path,  stream=True).raw,).convert('RGB')
             except:
-                img = Image.open('./heritageweaver/data/No_Image_Available.jpg').convert("RGB")
+                try:
+                    # 'https://www.nms.ac.uk/search.axd?command=getcontent&server=Detail&value='
+                    # 'https://www.nms.ac.uk/api/axiell?command=getcontent&server=Detail&value='
+                    img_path = 'https://www.nms.ac.uk/api/axiell?command=getcontent&server=Detail&value=' + img_path.split('value=')[-1]
+                    data = requests.get(img_path)
+                    img = Image.open(io.BytesIO(bytes(data.content)))
+                except:
+                    #print(img_path)
+                    img = Image.open('./heritageweaver/data/No_Image_Available.jpg').convert("RGB")
         elif source == 'img_path':
             img = Image.open(result_df.loc[i-1,source]).convert("RGB")
         ax = fig.add_subplot(rows, columns, i,)
