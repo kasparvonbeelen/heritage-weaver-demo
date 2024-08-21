@@ -5,9 +5,17 @@ import requests
 
 def open_image(img_uri: str) -> Image.Image:
     if img_uri.startswith('http'):
-        #if 'sciencemuseum' in img_uri:
-        #    img_uri = img_uri.replace('.uk/images/','.uk/').lower()
-        return Image.open(requests.get(img_uri, stream=True).raw).convert("RGB")
+        try:
+            img = Image.open(requests.get(img_path,  stream=True).raw,).convert('RGB')
+        except:
+            try:
+                img_path = 'https://www.nms.ac.uk/api/axiell?command=getcontent&server=Detail&value=' + img_path.split('value=')[-1]
+                data = requests.get(img_path)
+                img = Image.open(io.BytesIO(bytes(data.content)))
+            except:
+                img = Image.open('./heritageweaver/data/No_Image_Available.jpg').convert("RGB")
+        #return Image.open(requests.get(img_uri, stream=True).raw).convert("RGB")
+        return img
     return Image.open(img_uri).convert("RGB")
     
     
@@ -23,7 +31,7 @@ def plot_by_uri(img_uri: str) -> None:
 
 def plot_by_record(record: List[str]) -> None:
     fig = plt.figure(figsize=(10, 10))
-    img = open_image(record[2]) 
+    img = open_image(record[3]) 
     ax = fig.add_subplot(1, 1, 1,)
     ax.set_xticks([])
     ax.set_yticks([])

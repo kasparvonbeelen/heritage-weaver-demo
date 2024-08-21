@@ -111,13 +111,10 @@ def plot_query_results(results: dict,
                 img = Image.open(requests.get(img_path,  stream=True).raw,).convert('RGB')
             except:
                 try:
-                    # 'https://www.nms.ac.uk/search.axd?command=getcontent&server=Detail&value='
-                    # 'https://www.nms.ac.uk/api/axiell?command=getcontent&server=Detail&value='
                     img_path = 'https://www.nms.ac.uk/api/axiell?command=getcontent&server=Detail&value=' + img_path.split('value=')[-1]
                     data = requests.get(img_path)
                     img = Image.open(io.BytesIO(bytes(data.content)))
                 except:
-                    #print(img_path)
                     img = Image.open('./heritageweaver/data/No_Image_Available.jpg').convert("RGB")
         elif source == 'img_path':
             img = Image.open(result_df.loc[i-1,source]).convert("RGB")
@@ -131,18 +128,20 @@ def plot_query_results(results: dict,
     return result_df
 
 def get_query_results(results: Dict, 
-                      #collection_df: pd.DataFrame, 
-                      source: str='img_path') -> pd.DataFrame:
+                      collection_df: pd.DataFrame, 
+                      source: str='img_path'
+                      ) -> pd.DataFrame:
     result_df = pd.DataFrame(results['metadatas'][0])
     result_df['similarity'] = 1 - np.array(results['distances'][0])
-    #top_results = result_df.groupby('record_id')['similarity'].max().sort_values(ascending=False)#.index.tolist()
-    # return pd.DataFrame(
-    #             top_results
-    #         ).merge(
-    #             collection_df[['record_id',source,'description']],
-    #             left_index=True,
-    #             right_on='record_id',
-    #             how='left'
-    #                 ).reset_index(drop=True)
+    #result_df = result_df[['record_id',source,'modality','name','similarity']]
+    top_results = result_df.groupby('record_id')['similarity'].max().sort_values(ascending=False)#.index.tolist()
+    return pd.DataFrame(
+                top_results
+            ).merge(
+                collection_df[['record_id',source,'description']],
+                left_index=True,
+                right_on='record_id',
+                how='left'
+                    ).reset_index(drop=True)
     
-    return result_df
+    
