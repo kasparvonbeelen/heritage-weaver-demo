@@ -182,3 +182,9 @@ test*
 **/.DS_Store
 **/._.DS_Store
 temp.*
+movies/*
+content/*
+gifs/*
+models/*
+hw/*
+legacy_notebooks/*
