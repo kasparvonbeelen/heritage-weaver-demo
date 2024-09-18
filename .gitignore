@@ -188,3 +188,4 @@ gifs/*
 models/*
 hw/*
 legacy_notebooks/*
+hw-*/

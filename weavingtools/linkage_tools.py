@@ -5,6 +5,7 @@ from .embedding_tools import ChromaDB
 from matplotlib import pyplot as plt
 from PIL import Image
 import requests
+import io
 from typing import Dict,  List, Tuple, Union, Literal
 
 def retrieve_records(db: ChromaDB,coll: str,modality: str) -> ChromaDB:   
@@ -177,9 +178,10 @@ def plot_query_results(results: Dict,
     columns = 2
     rows = 5
     for i in range(1, columns*rows +1):
+        img_path = result_df.loc[i-1,source]
         if source == 'img_url':
             try:
-                img = Image.open(requests.get(img_path,  stream=True).raw,).convert('RGB')
+                img = Image.open(requests.get(img_path,  stream=True).raw,).convert('RGB') #  img_path
             except:
                 try:
                     img_path = 'https://www.nms.ac.uk/api/axiell?command=getcontent&server=Detail&value=' + img_path.split('value=')[-1]
@@ -223,4 +225,47 @@ def get_query_results(results: Dict,
                 how='left'
                     ).reset_index(drop=True)
     
+def compare_models(query, filters, collection_dict, source='img_path',top_n=5):
+    def convert_results_to_df(results,model_type='base'):
+        result_df = pd.DataFrame(results['metadatas'][0])
+        result_df['similarity'] = 1 - np.array(results['distances'][0])
+        result_df['model']  = model_type
+        return result_df
+    result_df = [convert_results_to_df(collection.query(query_texts=[query],where=filters, n_results=top_n),model_type)
+        for model_type, collection in collection_dict.items()]
+
+    result_df = pd.concat(result_df, axis=0, ignore_index=True)
+
     
+    columns = top_n
+    rows = len(collection_dict)
+
+    fig = plt.figure(figsize=(top_n*rows, 10))
+
+    for i in range(1, columns*rows +1):
+        #img_path = 
+        if source == 'img_url':
+            try:
+                img = Image.open(requests.get(result_df.loc[i-1,source],  stream=True).raw,).convert('RGB') #  img_path
+            except:
+                # try:
+                #     img_path = 'https://www.nms.ac.uk/api/axiell?command=getcontent&server=Detail&value=' + img_path.split('value=')[-1]
+                #     data = requests.get(img_path)
+                #     img = Image.open(io.BytesIO(bytes(data.content)))
+                # except:
+                    #img = Image.open('./heritageweaver/data/No_Image_Available.jpg').convert("RGB")
+                no_image_uri = 'https://upload.wikimedia.org/wikipedia/commons/1/14/No_Image_Available.jpg?20200913095930'
+                img = Image.open(requests.get(no_image_uri,  stream=True).raw,).convert('RGB')
+        elif source == 'img_path':
+            img = Image.open(result_df.loc[i-1,source]).convert("RGB")
+        
+        ax = fig.add_subplot(rows, columns, i,)
+        title = f"{result_df.loc[i-1,'model']}//{result_df.loc[i-1,'name']}\n{result_df.loc[i-1,'record_id']}" # 
+        ax.title.set_text(title)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        plt.imshow(img)
+    plt.show()
+    return result_df
+
+
