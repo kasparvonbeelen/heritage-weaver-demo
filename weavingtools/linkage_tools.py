@@ -229,13 +229,17 @@ def compare_models(query, filters, collection_dict, source='img_path',top_n=5, s
     def convert_results_to_df(results,model_type='base'):
         result_df = pd.DataFrame(results['metadatas'][0])
         result_df['similarity'] = 1 - np.array(results['distances'][0])
+        #result_df.sort_values(by='similarity',ascending=False,inplace=False).reset_index(drop=True, inplace=True)
         result_df['model']  = model_type
+        result_df = result_df.drop_duplicates(subset=['img_path','model'], keep='first').sort_values(by='similarity',ascending=False)
+        result_df.reset_index(drop=True, inplace=True)
         return result_df.iloc[start_from:start_from+top_n]
-    result_df = [convert_results_to_df(collection.query(query_texts=[query],where=filters, n_results=start_from+top_n),model_type)
+    result_df = [convert_results_to_df(collection.query(query_texts=[query],where=filters, n_results=start_from+top_n+20),model_type)
+                 
         for model_type, collection in collection_dict.items()]
 
     result_df = pd.concat(result_df, axis=0, ignore_index=True)
-
+    print(result_df.shape)
     import random
 
     groups = [df for _, df in result_df.groupby('model')]
@@ -260,7 +264,7 @@ def compare_models(query, filters, collection_dict, source='img_path',top_n=5, s
             img = Image.open(result_df.loc[i-1,source]).convert("RGB")
         
         ax = fig.add_subplot(rows, columns, i,)
-        title = f"{result_df.loc[i-1,'name']} - {result_df.loc[i-1,'record_id']}" # result_df.loc[i-1,'model']}//
+        title = f"{result_df.loc[i-1,'name']} - {result_df.loc[i-1,'record_id']}" # {result_df.loc[i-1,'model']}//{round(result_df.loc[i-1,'similarity'],2)}//
         ax.title.set_text(title)
         ax.set_xticks([])
         ax.set_yticks([])
