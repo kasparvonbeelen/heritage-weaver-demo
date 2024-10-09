@@ -285,6 +285,7 @@ class NMSCollection(MultiModalCollection):
             files (list): list of csv files with database exports from
                 the NMS collection
         """
+        print('Using the following files', list(files))
         dfs = [pd.read_csv(f) for f in files]
         col_names = []
         for df in dfs:
@@ -302,7 +303,8 @@ class NMSCollection(MultiModalCollection):
          'media.reference':'img_loc'}
         
         self.df.rename(col_mapping, axis=1, inplace=True)
-        self.df['img_loc'] = self.df['img_loc'].apply(lambda x: x.split('|') if not pd.isnull(x) else [])
+        self.df['img_loc'] = self.df['img_loc'].apply(lambda x: x.split('|') if (not pd.isnull(x)) else [])
+        self.df['img_loc'] = self.df['img_loc'].apply(lambda x: [i for i in x if i.startswith('PF') or i.startswith('MP')])
         self.df = self.df.explode('img_loc')
         self.df['img_name'] = self.df.img_loc.apply(lambda x: x + '.jpg' if not pd.isnull(x) else x)
         self.df['img_path'] = self.df.img_name.apply(lambda x: self.img_folder/ x if not pd.isnull(x) else x)
